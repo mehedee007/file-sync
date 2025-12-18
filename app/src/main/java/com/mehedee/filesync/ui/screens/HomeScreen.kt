@@ -11,7 +11,10 @@ import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onSelectFilesClick: () -> Unit = {},
+    onViewHistoryClick: () -> Unit = {}
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -76,7 +79,7 @@ fun HomeScreen() {
 
             // Action Buttons
             Button(
-                onClick = { /* TODO: Select Files */ },
+                onClick  = onSelectFilesClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
@@ -86,7 +89,7 @@ fun HomeScreen() {
             }
 
             OutlinedButton(
-                onClick = { /* TODO: View History */ },
+                onClick = onViewHistoryClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
