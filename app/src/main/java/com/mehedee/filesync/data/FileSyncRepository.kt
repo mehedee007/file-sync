@@ -7,6 +7,10 @@ import com.mehedee.filesync.utils.FileInfo
 import com.mehedee.filesync.utils.FilePickerHelper
 import kotlinx.coroutines.flow.Flow
 
+import android.net.Uri
+import com.mehedee.filesync.data.remote.FileUploadService
+import com.mehedee.filesync.data.remote.UploadResponse
+
 class FileSyncRepository(context: Context) {
 
     private val database = FileSyncDatabase.getDatabase(context)
@@ -65,5 +69,20 @@ class FileSyncRepository(context: Context) {
     // Clear all
     suspend fun clearAll() {
         dao.clearAll()
+    }
+    // Upload file to server
+    suspend fun uploadFileToServer(context: Context, file: FileSyncEntity): Result<UploadResponse> {
+        val uploadService = FileUploadService(context)
+        return try {
+            val uri = Uri.parse(file.filePath)
+            uploadService.uploadFile(
+                uri = uri,
+                fileName = file.fileName,
+                fileHash = file.fileHash,
+                fileSize = file.fileSize
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
