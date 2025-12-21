@@ -42,4 +42,28 @@ interface FileSyncDao {
     // Clear all records
     @Query("DELETE FROM file_sync")
     suspend fun clearAll()
+
+    // Update upload progress
+    @Query("UPDATE file_sync SET uploadedBytes = :uploadedBytes, uploadProgress = :progress WHERE id = :fileId")
+    suspend fun updateUploadProgress(fileId: Int, uploadedBytes: Long, progress: Int)
+
+    // Pause upload
+    @Query("UPDATE file_sync SET syncStatus = 'PAUSED' WHERE id = :fileId")
+    suspend fun pauseUpload(fileId: Int)
+
+    // Resume upload (set back to PENDING)
+    @Query("UPDATE file_sync SET syncStatus = 'PENDING' WHERE id = :fileId")
+    suspend fun resumeUpload(fileId: Int)
+
+    // Get paused files
+    @Query("SELECT * FROM file_sync WHERE syncStatus = 'PAUSED'")
+    suspend fun getPausedFiles(): List<FileSyncEntity>
+
+    // Increment retry count
+    @Query("UPDATE file_sync SET retryCount = retryCount + 1 WHERE id = :fileId")
+    suspend fun incrementRetryCount(fileId: Int)
+
+    // Reset upload progress
+    @Query("UPDATE file_sync SET uploadedBytes = 0, uploadProgress = 0 WHERE id = :fileId")
+    suspend fun resetUploadProgress(fileId: Int)
 }

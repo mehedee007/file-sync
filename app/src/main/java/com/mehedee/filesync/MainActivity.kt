@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.mehedee.filesync.ui.screens.FileSelectionScreen
 import com.mehedee.filesync.ui.screens.HomeScreen
+import com.mehedee.filesync.ui.screens.SettingsScreen
 import com.mehedee.filesync.ui.screens.SyncHistoryScreen
 
 class MainActivity : ComponentActivity() {
@@ -37,12 +38,16 @@ fun FileSyncApp() {
     when (currentScreen) {
         "home" -> HomeScreen(
             onSelectFilesClick = { currentScreen = "file_selection" },
-            onViewHistoryClick = { currentScreen = "sync_history" }
+            onViewHistoryClick = { currentScreen = "sync_history" },
+            onSettingsClick = { currentScreen = "settings" }
         )
         "file_selection" -> FileSelectionScreen(
             onBackClick = { currentScreen = "home" }
         )
         "sync_history" -> SyncHistoryScreen(  // Add this
+            onBackClick = { currentScreen = "home" }
+        )
+        "settings" -> SettingsScreen(  // Add this
             onBackClick = { currentScreen = "home" }
         )
     }

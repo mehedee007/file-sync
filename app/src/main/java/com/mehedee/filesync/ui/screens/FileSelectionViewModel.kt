@@ -9,6 +9,7 @@ import com.mehedee.filesync.utils.FileInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import com.mehedee.filesync.utils.NotificationHelper
 
 class FileSelectionViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -60,11 +61,23 @@ class FileSelectionViewModel(application: Application) : AndroidViewModel(applic
                     return@launch
                 }
 
-                // Upload files one by one
                 var successCount = 0
                 var failCount = 0
+                val totalFiles = pendingFiles.size
 
-                for (file in pendingFiles) {
+                // Upload files one by one
+                for ((index, file) in pendingFiles.withIndex()) {
+                    val currentFile = index + 1
+
+                    // Show progress notification
+                    NotificationHelper.showSyncProgressNotification(
+                        getApplication(),
+                        file.fileName,
+                        (currentFile * 100) / totalFiles,
+                        currentFile,
+                        totalFiles
+                    )
+
                     repository.updateSyncStatus(file.id, "SYNCING")
 
                     val result = repository.uploadFileToServer(getApplication(), file)
@@ -83,6 +96,16 @@ class FileSelectionViewModel(application: Application) : AndroidViewModel(applic
                     }
                 }
 
+                // Cancel progress notification
+                NotificationHelper.cancelSyncNotification(getApplication())
+
+                // Show completion notification
+                NotificationHelper.showSyncCompleteNotification(
+                    getApplication(),
+                    successCount,
+                    failCount
+                )
+
                 if (failCount == 0) {
                     _saveStatus.value = SaveStatus.Success(successCount)
                 } else {
@@ -90,6 +113,7 @@ class FileSelectionViewModel(application: Application) : AndroidViewModel(applic
                 }
 
             } catch (e: Exception) {
+                NotificationHelper.cancelSyncNotification(getApplication())
                 _saveStatus.value = SaveStatus.Error(e.message ?: "Sync failed")
             }
         }

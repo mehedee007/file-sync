@@ -11,6 +11,7 @@ import android.net.Uri
 import com.mehedee.filesync.data.remote.FileUploadService
 import com.mehedee.filesync.data.remote.UploadResponse
 
+import com.mehedee.filesync.data.remote.ChunkedUploadService
 class FileSyncRepository(context: Context) {
 
     private val database = FileSyncDatabase.getDatabase(context)
@@ -85,4 +86,45 @@ class FileSyncRepository(context: Context) {
             Result.failure(e)
         }
     }
+
+    // Update progress
+    suspend fun updateUploadProgress(fileId: Int, uploadedBytes: Long, progress: Int) {
+        dao.updateUploadProgress(fileId, uploadedBytes, progress)
+    }
+
+    // Pause upload
+    suspend fun pauseUpload(fileId: Int) {
+        dao.pauseUpload(fileId)
+    }
+
+    // Resume upload
+    suspend fun resumeUpload(fileId: Int) {
+        dao.resumeUpload(fileId)
+    }
+
+    // Get paused files
+    suspend fun getPausedFiles(): List<FileSyncEntity> {
+        return dao.getPausedFiles()
+    }
+
+    // Increment retry count
+    suspend fun incrementRetryCount(fileId: Int) {
+        dao.incrementRetryCount(fileId)
+    }
+
+    // Reset progress
+    suspend fun resetUploadProgress(fileId: Int) {
+        dao.resetUploadProgress(fileId)
+    }
+
+    // Upload with progress tracking
+    suspend fun uploadFileWithProgress(
+        file: FileSyncEntity,
+        onProgress: (uploadedBytes: Long, progress: Int) -> Unit
+    ): Result<UploadResponse> {
+        val uploadService = ChunkedUploadService(appContext)
+        return uploadService.uploadFileWithProgress(file, onProgress)
+    }
+
+
 }

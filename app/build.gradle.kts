@@ -77,4 +77,8 @@ dependencies {
 
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.6")
+
+    // LiveData for WorkManager observation
+    implementation("androidx.compose.runtime:runtime-livedata:1.5.4")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
 }

@@ -1,5 +1,7 @@
 package com.mehedee.filesync.data.remote
 
+import android.content.Context
+import com.mehedee.filesync.utils.PreferencesHelper
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -8,8 +10,8 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-    // Default server URL - user can change this in settings
-    private var baseUrl = "http://192.168.100.147:5000/"  // Change to your IP
+    private var retrofit: Retrofit? = null
+    private var currentBaseUrl: String = ""
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
@@ -22,17 +24,23 @@ object RetrofitClient {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private val retrofit = Retrofit.Builder()
-        .baseUrl(baseUrl)
-        .client(okHttpClient)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
+    fun getApi(context: Context): FileUploadApi {
+        val baseUrl = PreferencesHelper.getFullServerUrl(context)
 
-    val api: FileUploadApi = retrofit.create(FileUploadApi::class.java)
+        // Recreate retrofit if URL changed
+        if (retrofit == null || currentBaseUrl != baseUrl) {
+            currentBaseUrl = baseUrl
+            retrofit = Retrofit.Builder()
+                .baseUrl(baseUrl)
+                .client(okHttpClient)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+        }
 
-    fun updateBaseUrl(newUrl: String) {
-        baseUrl = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
+        return retrofit!!.create(FileUploadApi::class.java)
     }
 
-    fun getBaseUrl(): String = baseUrl
+    fun getBaseUrl(context: Context): String {
+        return PreferencesHelper.getFullServerUrl(context)
+    }
 }

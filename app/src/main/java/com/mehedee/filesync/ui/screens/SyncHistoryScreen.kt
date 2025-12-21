@@ -171,9 +171,12 @@ fun SyncHistoryScreen(
 @Composable
 fun SyncFileCard(
     file: FileSyncEntity,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    uploadManagerViewModel: UploadManagerViewModel = viewModel()
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val uploadingFiles by uploadManagerViewModel.uploadingFiles.collectAsState()
+    val uploadState = uploadingFiles[file.id]
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -215,18 +218,101 @@ fun SyncFileCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Status Badge
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                StatusBadge(file.syncStatus)
+            // Upload Progress
+            when (uploadState) {
+                is UploadState.Uploading -> {
+                    LinearProgressIndicator(
+                        progress = uploadState.progress / 100f,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Uploading: ${uploadState.progress}%",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        TextButton(onClick = { uploadManagerViewModel.pauseUpload(file.id) }) {
+                            Text("Pause", fontSize = 12.sp)
+                        }
+                    }
+                }
+                is UploadState.Paused -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "⏸ Paused at ${file.uploadProgress}%",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                        Row {
+                            TextButton(onClick = { uploadManagerViewModel.resumeUpload(file) }) {
+                                Text("Resume", fontSize = 12.sp)
+                            }
+                            TextButton(onClick = { uploadManagerViewModel.cancelUpload(file.id) }) {
+                                Text("Cancel", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+                is UploadState.Error -> {
+                    Text(
+                        "❌ Error: ${uploadState.message}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    TextButton(onClick = { uploadManagerViewModel.retryUpload(file) }) {
+                        Text("Retry", fontSize = 12.sp)
+                    }
+                }
+                null -> {
+                    // Status Badge
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StatusBadge(file.syncStatus)
 
-                Text(
-                    formatDate(file.lastModified),
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                        if (file.uploadProgress > 0 && file.syncStatus == "PENDING") {
+                            Text(
+                                "(${file.uploadProgress}% completed)",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Text(
+                            formatDate(file.lastModified),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // Upload controls for PENDING/PAUSED files
+                    if (file.syncStatus == "PENDING" || file.syncStatus == "PAUSED") {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            if (file.syncStatus == "PAUSED") {
+                                TextButton(onClick = { uploadManagerViewModel.resumeUpload(file) }) {
+                                    Text("Resume Upload")
+                                }
+                            } else {
+                                TextButton(onClick = { uploadManagerViewModel.startUpload(file) }) {
+                                    Text("Start Upload")
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // Error message if failed
@@ -237,6 +323,13 @@ fun SyncFileCard(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.error
                 )
+                if (file.retryCount > 0) {
+                    Text(
+                        "Retry attempts: ${file.retryCount}",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             // Last sync time if synced
@@ -281,6 +374,7 @@ fun StatusBadge(status: String) {
     val (color, text) = when (status) {
         "PENDING" -> Pair(Color(0xFFFFA726), "Pending")
         "SYNCING" -> Pair(Color(0xFF42A5F5), "Syncing")
+        "PAUSED" -> Pair(Color(0xFFAB47BC), "Paused")  // Add this
         "SYNCED" -> Pair(Color(0xFF4CAF50), "Synced")
         "FAILED" -> Pair(Color(0xFFEF5350), "Failed")
         else -> Pair(Color.Gray, status)

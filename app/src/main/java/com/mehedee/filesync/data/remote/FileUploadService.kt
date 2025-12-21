@@ -12,11 +12,11 @@ import java.io.FileOutputStream
 
 class FileUploadService(private val context: Context) {
 
-    private val api = RetrofitClient.api
+    private fun getApi() = RetrofitClient.getApi(context)
 
     suspend fun checkServerConnection(): Result<ServerStatusResponse> {
         return try {
-            val response = api.checkServerStatus()
+            val response = getApi().checkServerStatus()
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
@@ -50,7 +50,7 @@ class FileUploadService(private val context: Context) {
             val fileSizeBody = fileSize.toString().toRequestBody("text/plain".toMediaTypeOrNull())
 
             // Upload
-            val response = api.uploadFile(filePart, fileNameBody, fileHashBody, fileSizeBody)
+            val response = getApi().uploadFile(filePart, fileNameBody, fileHashBody, fileSizeBody)
 
             // Clean up temp file
             file.delete()

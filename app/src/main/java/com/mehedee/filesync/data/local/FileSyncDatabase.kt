@@ -8,7 +8,7 @@ import com.mehedee.filesync.data.local.entity.FileSyncEntity
 
 @Database(
     entities = [FileSyncEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class FileSyncDatabase : RoomDatabase() {
@@ -25,7 +25,9 @@ abstract class FileSyncDatabase : RoomDatabase() {
                     context.applicationContext,
                     FileSyncDatabase::class.java,
                     "file_sync_database"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

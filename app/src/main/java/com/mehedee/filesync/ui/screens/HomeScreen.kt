@@ -17,11 +17,22 @@ import com.mehedee.filesync.data.remote.FileUploadService
 
 import androidx.lifecycle.viewmodel.compose.viewModel
 //import com.mehedee.filesync.ui.screens.SyncHistoryViewModel
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.work.WorkInfo
+import com.mehedee.filesync.utils.WorkManagerHelper
+import com.mehedee.filesync.utils.PreferencesHelper
+
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.mehedee.filesync.utils.NotificationHelper
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onSelectFilesClick: () -> Unit = {},
     onViewHistoryClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     viewModel: SyncHistoryViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -31,6 +42,25 @@ fun HomeScreen(
     val pendingCount = files.count { it.syncStatus == "PENDING" }
     val syncedCount = files.count { it.syncStatus == "SYNCED" }
     val totalCount = files.size
+    val autoSyncEnabled = remember { PreferencesHelper.isAutoSyncEnabled(context) }
+    val workInfo = WorkManagerHelper.getSyncWorkInfo(context).observeAsState()
+    val isBackgroundSyncing = workInfo.value?.any { it.state == WorkInfo.State.RUNNING } == true
+    // Request notification permission (Android 13+)
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Toast.makeText(context, "Notifications enabled", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        NotificationHelper.createNotificationChannel(context)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -92,6 +122,41 @@ fun HomeScreen(
                         StatItem("Synced", syncedCount.toString())
                         StatItem("Pending", pendingCount.toString())
                     }
+                    // Background Sync Status Card
+                    if (autoSyncEnabled) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isBackgroundSyncing)
+                                    MaterialTheme.colorScheme.tertiaryContainer
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (isBackgroundSyncing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Background sync running...", fontSize = 14.sp)
+                                    } else {
+                                        Text("🔄 Auto sync enabled", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -101,28 +166,47 @@ fun HomeScreen(
                 val fileViewModel: FileSelectionViewModel = viewModel()
                 val saveStatus by fileViewModel.saveStatus.collectAsState()
 
-                Button(
-                    onClick = { fileViewModel.startSync() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .padding(bottom = 12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary
-                    ),
-                    enabled = saveStatus !is SaveStatus.Saving
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (saveStatus is SaveStatus.Saving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onSecondary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Syncing...", fontSize = 18.sp)
-                    } else {
-                        Text("Sync Now ($pendingCount files)", fontSize = 18.sp)
+                    // Immediate Sync
+                    Button(
+                        onClick = { fileViewModel.startSync() },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        ),
+                        enabled = saveStatus !is SaveStatus.Saving && !isBackgroundSyncing
+                    ) {
+                        if (saveStatus is SaveStatus.Saving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onSecondary
+                            )
+                        } else {
+                            Text("Sync Now", fontSize = 16.sp)
+                        }
+                    }
+
+                    // Background Sync
+                    OutlinedButton(
+                        onClick = {
+                            WorkManagerHelper.syncNow(context)
+                            Toast.makeText(context, "Background sync started", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        enabled = !isBackgroundSyncing
+                    ) {
+                        Text("Sync in BG", fontSize = 16.sp)
                     }
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Show result
                 LaunchedEffect(saveStatus) {
@@ -177,6 +261,14 @@ fun HomeScreen(
                     .height(56.dp)
             ) {
                 Text("Test Server Connection", fontSize = 18.sp)
+            }
+            OutlinedButton(
+                onClick = onSettingsClick,  // Change this
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("Settings", fontSize = 18.sp)
             }
         }
     }
